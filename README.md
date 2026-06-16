@@ -1,36 +1,139 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MissionBrief
 
-## Getting Started
+**Source-backed board packet & grant report generator for small nonprofits.**
 
-First, run the development server:
+MissionBrief turns messy nonprofit files — program logs, budgets, grant
+agreements, donor exports — into funder-ready reports where **every number is
+traceable to the file and row it came from.**
+
+> This is a portfolio demo, not a production SaaS. The bundled "BrightPath Youth
+> Center" dataset is fictional and internally consistent so every figure
+> reconciles.
+
+---
+
+## Why it's different
+
+Most "AI report generators" hand a document to a language model and hope the
+numbers come back right. MissionBrief inverts that:
+
+- **Metrics are extracted deterministically** by explicit, rule-based
+  extractors — summing CSV columns, reading milestone tables, scanning notes for
+  risk flags. No model guesses a figure.
+- **Every metric carries a citation**: source file, row range or section, an
+  evidence snippet, and a confidence score.
+- **Reports are assembled from cited metrics.** An optional LLM may smooth the
+  prose, but it is forbidden from touching figures and falls back to
+  deterministic text on any error.
+
+The hard, valuable part is the **audit trail** — not the prose.
+
+---
+
+## Quick start
+
+Requires Node 18+ (Node 20+ recommended).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env        # defaults work out of the box
+npm run db:push             # create the SQLite schema
+npm run db:seed             # load the BrightPath demo dataset
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open the app and click **Load BrightPath Demo Data** (or just visit
+`/dashboard` — the seed already populated it).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To generate a report: **Generate Report → pick a type → Generate**, then trace
+each claim in the citation sidebar and export to Markdown or PDF.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## What you can do
 
-To learn more about Next.js, take a look at the following resources:
+| Page | What it does |
+| --- | --- |
+| `/` | Landing page explaining the source-backed approach |
+| `/dashboard` | KPIs, attendance chart, budget utilization, grant milestones |
+| `/files` | Upload CSV/MD/TXT/JSON or load the demo set; see parsed files |
+| `/metrics` | Every extracted metric with source, evidence, and confidence |
+| `/reports/new` | Generate a board packet, grant update, summary, KPI snapshot, or risk memo |
+| `/reports/[id]` | The generated report with an inline citation sidebar + export |
+| `/project` | How the pipeline works and the tech stack |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Report types:** Monthly Board Packet · Grant Progress Update · Executive
+Summary · KPI Snapshot · Risk & Needs Memo.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Export:** Markdown download · copy to clipboard · print-to-PDF (clean print
+layout).
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Tech stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Next.js** (App Router) + **TypeScript** (strict)
+- **Prisma** + **SQLite** — local-first, no cloud database
+- **Tailwind CSS v4**
+- **Optional LLM** — OpenAI or local Ollama, isolated to narrative polish only
+
+---
+
+## Optional: enable LLM polish
+
+The app runs fully offline by default (`REPORT_ENGINE=deterministic`). To let a
+model rephrase narrative sections (numbers stay deterministic):
+
+```bash
+# OpenAI
+REPORT_ENGINE=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+
+# or local Ollama
+REPORT_ENGINE=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+```
+
+If the model is unreachable or errors, generation silently falls back to the
+deterministic narrative.
+
+---
+
+## Project layout
+
+```
+app/                Next.js routes (pages + API route handlers)
+components/          UI components, charts, shell
+lib/
+  parsers/          CSV / Markdown / TXT / JSON → structured form
+  extraction/       Rule-based metric extractors + citation builder
+  reports/          Section builders, report assembly, exporters
+  ai/               Optional LLM clients (OpenAI / Ollama / mock)
+prisma/             Schema + seed
+sample-data/        Fictional BrightPath Youth Center files
+docs/               Product brief, architecture, roadmap, demo script, limitations
+```
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full pipeline and
+[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) for honest caveats.
+
+---
+
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build |
+| `npm run db:push` | Apply the Prisma schema to SQLite |
+| `npm run db:seed` | Load the BrightPath demo dataset |
+| `npm run db:reset` | Reset the schema and reseed |
+| `npm run lint` | Lint |
+
+---
+
+## License
+
+MIT. Sample data is fictional and provided for demonstration only.
