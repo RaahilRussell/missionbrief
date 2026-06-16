@@ -1,0 +1,99 @@
+// MissionBrief data model.
+// SQLite keeps the demo local-first: no cloud database required.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// One nonprofit demo project. The seeded demo uses "BrightPath Youth Center".
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sourceFiles SourceFile[]
+  metrics     ExtractedMetric[]
+  reports     Report[]
+}
+
+/// A raw file that was uploaded or loaded from the bundled sample dataset.
+model SourceFile {
+  id          String   @id @default(cuid())
+  workspaceId String
+  filename    String
+  fileType    String // csv | markdown | text | json
+  category    String // role inferred from the file, e.g. "attendance", "budget"
+  rawText     String
+  parsedJson  String // JSON-serialised parsed representation (rows / sections)
+  rowCount    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  metrics   ExtractedMetric[]
+
+  @@index([workspaceId])
+}
+
+/// A single fact extracted from a source file, with a traceable origin.
+model ExtractedMetric {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  sourceFileId   String
+  metricName     String
+  metricValue    String // stored as string to preserve formatting; numericValue is the parsed form
+  numericValue   Float?
+  unit           String
+  category       String // Program Activity | Financial | Grant | Fundraising | Risk | Outcome
+  sourceLocation String // e.g. "program_attendance.csv rows 2-31"
+  evidence       String // short snippet supporting the value
+  confidence     Float
+  createdAt      DateTime @default(now())
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sourceFile SourceFile @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([sourceFileId])
+}
+
+/// A generated report (board packet, grant update, etc.).
+model Report {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  reportType      String
+  title           String
+  periodLabel     String
+  tone            String
+  engine          String // "deterministic" | "openai" | "ollama"
+  contentMarkdown String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  citations Citation[]
+
+  @@index([workspaceId])
+}
+
+/// Evidence link backing a specific claim inside a report.
+model Citation {
+  id             String @id @default(cuid())
+  reportId       String
+  index          Int // [1], [2], ... as referenced in the report body
+  sourceFile     String
+  sourceLocation String
+  claimText      String
+  evidenceSnippet String
+  confidence     Float
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
